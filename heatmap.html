@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+         <meta charset="utf-8">
+         <script type="text/javascript" src="./d3.js"></script>
+         <script type="text/javascript" src="./topojson.js"></script>
+      </head>
+      <body>
+        <select id = "selectBox" style="position: absolute;left: 10px;top: 10px;"></select>
+<script type="text/javascript">
+//
+// based on Hans Rosling's presentation and Mike Bostock's D3 example
+// http://www.ted.com/talks/hans_rosling_shows_the_best_stats_you_ve_ever_seen
+// http://bost.ocks.org/mike/nations/
+//
+var width = 1000;
+var height = 600;
+var offset = 40;
+var currentYear = 2000;
+var color = d3.interpolateRdYlGn();
+var tokei = {};
+
+var svg = d3.select("body").append("svg")
+            .attr("width", width + 2*offset)
+            .attr("height", height + 2*offset);
+
+var index = [
+        "Goal 1 Dash",
+        "Goal 2 Dash",
+        "Goal 3 Dash",
+        "Goal 4 Dash",
+        "Goal 5 Dash",
+        "Goal 6 Dash",
+        "Goal 7 Dash",
+        "Goal 8 Dash",
+        "Goal 9 Dash",
+        "Goal 10 Dash",
+        "Goal 11 Dash",
+        "Goal 12 Dash",
+        "Goal 13 Dash",
+        "Goal 14 Dash",
+        "Goal 15 Dash",
+        "Goal 16 Dash",
+        "Goal 17 Dash"
+    ];
+
+    d3.select("#selectBox").selectAll("option").data(index).enter()
+        .append("option").attr("value", d => d)
+        .append("text").text(d => d);
+        document.querySelector('[id="selectBox"]').onchange = function(d) {
+        draw_world_map(document.getElementById("selectBox").value);
+    }
+
+draw_world_map("Goal 1 Dash");
+
+async function draw_world_map(index, year) {
+    var data = await d3.json("./countries.topojson");
+
+    svg.selectAll("path").remove();
+    
+    
+    await read_data();
+
+    console.log(tokei);
+    console.log(data);
+
+    var countries = topojson.feature(data,data.objects.countries);
+
+    var projection = d3.geoMercator()
+                    .center([0,0])
+                    .translate([width/4,height/2])
+                    .scale(100);
+    var path = d3.geoPath().projection(projection);
+    svg.selectAll("path")
+    .data(countries.features)
+    .enter()
+    .append("path")
+    .attr("d",path)
+    .attr("fill", function(d) {
+        var name = d.id;
+        if (name in tokei) {
+            return tokei[name][0][index];
+        } else return "gray";
+    })
+    .attr("fill-opacity", 1)
+    .attr("stroke","#333333")
+    .attr("stroke-width", 0.5);
+}
+
+async function read_data() {
+    var data = await d3.csv("SDGdata2.csv");
+    data.forEach(function(d, i) {
+        tokei[d["Country Code ISO3"]] = [];
+    });
+    data.forEach(function(d, i) {
+        tokei[d["Country Code ISO3"]].push(d);
+    });
+}
+
+</script>
+</body></html>

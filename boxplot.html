@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+
+<!-- Load d3.js -->
+<script src="./d3.js"></script>
+
+<!-- Create a div where the graph will take place -->
+<div id="my_dataviz"></div>
+
+<script>
+
+
+// set the dimensions and margins of the graph
+var margin = {top: 40, right: 30, bottom: 30, left: 40},
+  width = 2000 - margin.left - margin.right,
+  height = 400 - margin.top - margin.bottom;
+
+// append the svg object to the body of the page
+var svg = d3.select("#my_dataviz")
+  .append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+
+draw_boxplot();
+
+async function draw_boxplot() {
+  await read_data();
+
+  var sumstat = d3.rollup(tokei, function(d) {
+      q1 = d3.quantile(d.map(function(g) { return g.value;}).sort(d3.ascending),.25)
+      median = d3.quantile(d.map(function(g) { return g.value;}).sort(d3.ascending),.5)
+      q3 = d3.quantile(d.map(function(g) { return g.value;}).sort(d3.ascending),.75)
+      interQuantileRange = q3 - q1
+      min = d3.quantile(d.map(function(g) { return g.value;}).sort(d3.ascending),.0)
+      max = d3.quantile(d.map(function(g) { return g.value;}).sort(d3.ascending),1)
+      return({q1: q1, median: median, q3: q3, interQuantileRange: interQuantileRange, min: min, max: max})
+  }, d=>d.class)
+
+  console.log(sumstat)
+
+  var x = d3.scaleBand()
+    .range([ 0, width ])
+    .domain(index)
+    .paddingInner(1)
+    .paddingOuter(.5)
+  svg.append("g")
+    .attr("transform", "translate(0," + height + ")")
+    .call(d3.axisBottom(x))
+
+  // Show the Y scale
+  var y = d3.scaleLinear()
+    .domain([0,100])
+    .range([height, 0])
+  svg.append("g").call(d3.axisLeft(y))
+
+  svg.selectAll("correl")
+    .data(sumstat)
+    .enter()
+    .append("text")
+    .attr("text-anchor", "middle")
+    .attr("font-size", "12")
+    .attr("x", d => x(d[0]))
+    .attr("y", height+30)
+    .text(d => "correl : " + correl[d[0]])
+
+  // Show the main vertical line
+  svg
+    .selectAll("vertLines")
+    .data(sumstat)
+    .enter()
+    .append("line")
+      .attr("x1", function(d){return(x(d[0]))})
+      .attr("x2", function(d){return(x(d[0]))})
+      .attr("y1", function(d){return(y(d[1].min))})
+      .attr("y2", function(d){return(y(d[1].max))})
+      .attr("stroke", "black")
+      .style("width", 40)
+
+  // rectangle for the main box
+  var boxWidth = 100
+  svg
+    .selectAll("boxes")
+    .data(sumstat)
+    .enter()
+    .append("rect")
+        .attr("x", function(d){return(x(d[0])-boxWidth/2)})
+        .attr("y", function(d){return(y(d[1].q3))})
+        .attr("height", function(d){return(y(d[1].q1)-y(d[1].q3))})
+        .attr("width", boxWidth )
+        .attr("stroke", "black")
+        .style("fill", "#69b3a2")
+
+  // Show the median
+  svg
+    .selectAll("medianLines")
+    .data(sumstat)
+    .enter()
+    .append("line")
+      .attr("x1", function(d){return(x(d[0])-boxWidth/2) })
+      .attr("x2", function(d){return(x(d[0])+boxWidth/2) })
+      .attr("y1", function(d){return(y(d[1].median))})
+      .attr("y2", function(d){return(y(d[1].median))})
+      .attr("stroke", "black")
+      .style("width", 80)
+
+// Add individual points with jitter
+var jitterWidth = 50
+svg
+  .selectAll("indPoints")
+  .data(tokei)
+  .enter()
+  .append("circle")
+    .attr("cx", function(d){return(x(d.class) - jitterWidth/2 + Math.random()*jitterWidth )})
+    .attr("cy", function(d){return(y(d.value))})
+    .attr("r", function(d) {
+      if(d.value>=0) return 4;
+      else return 0;
+    })
+    .style("fill", d => color(d.income))
+    .attr("stroke", "black")
+}
+
+async function read_data() {
+  var data = await d3.csv("SDG_data.csv");
+  
+  data.forEach(function(d, i) {
+    if(d["Year"] === "2021") {
+      index.forEach(function(i) {
+        var push_data = {};
+        push_data["country"] = d["Country"];
+        push_data["income"] = d["Income Group"];
+        push_data["value"] = Number(d[i]);
+        push_data["class"] = i;
+        if(d[i] != '') tokei.push(push_data);
+      });
+    }
+  });
+}
+
+async function read_data2() {
+    var data = await d3.csv("SDGdata2.csv");
+    data.forEach(function(d, i) {
+        tokei2[d["Country Code ISO3"]] = [];
+    });
+    data.forEach(function(d, i) {
+        tokei2[d["Country Code ISO3"]].push(d);
+    });
+}
+
+var index = [
+  "SDG Index Score",
+  "Goal 1 Score",
+  "Goal 2 Score",
+  "Goal 3 Score",
+  "Goal 4 Score",
+  "Goal 5 Score",
+  "Goal 6 Score",
+  "Goal 7 Score",
+  "Goal 8 Score",
+  "Goal 9 Score",
+  "Goal 10 Score",
+  "Goal 11 Score",
+  "Goal 12 Score",
+  "Goal 13 Score",
+  "Goal 14 Score",
+  "Goal 15 Score",
+  "Goal 16 Score",
+  "Goal 17 Score"
+];
+
+var correl = {
+  "SDG Index Score":0.736,
+  "Goal 1 Score":0.658,
+  "Goal 2 Score":0.497,
+  "Goal 3 Score":0.770,
+  "Goal 4 Score":0.713,
+  "Goal 5 Score":0.531,
+  "Goal 6 Score":0.625,
+  "Goal 7 Score":0.603,
+  "Goal 8 Score":0.631,
+  "Goal 9 Score":0.796,
+  "Goal 10 Score":0.283,
+  "Goal 11 Score":0.647,
+  "Goal 12 Score":-0.748,
+  "Goal 13 Score":-0.642,
+  "Goal 14 Score":-0.143,
+  "Goal 15 Score":0.123,
+  "Goal 16 Score":0.697,
+  "Goal 17 Score":0.338
+};
+
+var tokei = [];
+var tokei2 = {};
+var color = d3.scaleOrdinal(d3.schemeCategory10);
+
+</script>
+</body></html>
